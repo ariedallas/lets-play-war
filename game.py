@@ -9,6 +9,7 @@ class CardSuit(Enum):
     HEART = 'Hearts'
     SPADE = 'Spades'
 
+
 class CardValue(Enum):
     TWO = 2
     THREE = 3
@@ -23,6 +24,7 @@ class CardValue(Enum):
     QUEEN = 12
     KING = 13
     ACE = 14
+
 
 class Player:
     def __init__(self, name, var_deck):
@@ -103,18 +105,12 @@ class Game:
         self.pot = []
         self.player_one = player_one
         self.player_two = player_two
+        self.round_counter = 0
 
     def round(self):
-        print("\nBegin round:")
+        print(f"\nBegin round: {self.round_counter}")
         print(f"{self.player_one.name} begins this round with: {self.player_one.my_deck.total_cards()} cards")
         print(f"{self.player_two.name} begins this round with: {self.player_two.my_deck.total_cards()} cards")
-
-        # self.player_one.print_first_five_cards()
-        # self.player_one.print_last_three_cards()
-        #
-        # print(f"Mao begins this round with: ")
-        # self.player_two.print_first_five_cards()
-        # self.player_two.print_last_three_cards()
 
         drawn_card_h = self.player_one.draw()
         drawn_card_m = self.player_two.draw()
@@ -125,22 +121,29 @@ class Game:
         print()
         self.print_pot()
 
-        self.determine_pot(drawn_card_h, drawn_card_m)
+        self.determine_pot(drawn_card_h, drawn_card_m, 0)
+        self.round_counter += 1
 
 
     def print_pot(self):
         print("    The pot is: ", end=" ")
-        for c in self.pot:
-            print(c.name, end=" : ")
-        print()
+
+        if len(self.pot) <= 2:
+            for c in self.pot[:2]:
+                print(c.name, end=" : ")
+            print()
+        else:
+            for c in self.pot[:3]:
+                print(c.name, end=" : ")
+            print(f"[ ++ {len(self.pot) -3} more cards ]")
 
 
     def shuffle_pot(self):
         random.shuffle(self.pot)
 
 
-    def war(self):
-        for c in range(3):
+    def war(self, cnt, draw_amount=3):
+        for c in range(draw_amount):
             self.pot.append(self.player_one.draw())
             self.pot.append(self.player_two.draw())
 
@@ -152,26 +155,59 @@ class Game:
 
         self.print_pot()
 
-        self.determine_pot(drawn_card_h, drawn_card_m)
+
+        self.determine_pot(drawn_card_h, drawn_card_m, cnt)
 
 
-    def determine_pot(self, drawn_card_p_one, drawn_card_p_two):
+    def determine_pot(self, drawn_card_p_one, drawn_card_p_two, cnt):
         val_card_h = drawn_card_p_one.card_value.value
         val_card_m = drawn_card_p_two.card_value.value
 
         if val_card_h > val_card_m:
-            print(f"    {self.player_one.name} Wins! {drawn_card_p_one.name} >>> {drawn_card_p_two.name}")
+            print(f"    {self.player_one.name.upper()} WINS!   {drawn_card_p_one.name} >>> {drawn_card_p_two.name}")
             self.shuffle_pot()
             self.player_one.wins(self.pot)
             self.pot = []
         elif val_card_m > val_card_h:
-            print(f"    {self.player_two.name} Wins! {drawn_card_p_two.name} >>> {drawn_card_p_one.name}")
+            print(f"    {self.player_two.name.upper()} WINS!   {drawn_card_p_two.name} >>> {drawn_card_p_one.name}")
             self.shuffle_pot()
             self.player_two.wins(self.pot)
             self.pot = []
         else:
-            print("    WAR!!!")
-            self.war()
+            cnt += 1
+            if cnt == 1:
+                print("\n    IT'S WAR!!!\n")
+            elif cnt == 2:
+                print("\n    DOUBLE WAR!!!\n")
+            elif cnt == 3:
+                print("\n    TRIPLE WAR!!!\n")
+            else:
+                print(f"\n    ALL OUT UNSTOPPABLE WAR #{cnt}!!!\n")
+
+            curr_loser = self.get_curr_loser()
+
+            if curr_loser.my_deck.total_cards() >= 4:
+                self.war(cnt)
+            elif 0 < curr_loser.my_deck.total_cards() < 4:
+                draw_amount = curr_loser.my_deck.total_cards() - 1
+                self.war(cnt, draw_amount)
+            else:
+                # curr_loser.my_deck.total_cards() == 0:
+                curr_loser.wins(self.pot)
+
+        if self.check_for_winner()[0]:
+            _, winner = self.check_for_winner()
+            print(f"\n{winner.name}, wins the game!!!")
+            sys.exit(0)
+
+            # elif curr_loser.my_deck.total_cards() == 1:
+
+    def get_curr_loser(self):
+        if self.player_one.my_deck.total_cards() <= self.player_two.my_deck.total_cards():
+            return self.player_one
+        else:
+            return self.player_two
+
 
     def check_for_winner(self):
         if self.player_one.my_deck.total_cards() == 0:
@@ -192,7 +228,9 @@ def main():
     player_humberto = Player("Humberto", DeckOfCards(deck_part_one))
     player_mao = Player("Mao", DeckOfCards(deck_part_two))
 
-    game = Game(player_humberto, player_mao)
+    # print(type(player_mao.my_deck.total_cards()))
+
+    game = Game(player_one=player_humberto, player_two=player_mao)
 
     while True:
         user_input = input("\nNext Round Go -->  ")
@@ -200,20 +238,14 @@ def main():
         if user_input.lower() == "no":
             break
 
-        if game.check_for_winner()[0]:
-            _, winner = game.check_for_winner()
-            print(f"{winner.name}, wins!!!")
-            sys.exit(0)
-
         game.round()
 
 if __name__ == "__main__":
     main()
 
-# edge cases: what if player doesn't have enough cards?
-#   however many cards they have, they play.
-#   i.e. if they have two cards remaining after the tie, they draw remaining minus one
-#   if they tie on the last card, then they win
-# split the deck in half and give each player 1/2
+#   how to implement / track double war?
+
+# show a stack trace with recursion
+# clean up pot print with war
 # can I show flipped cards?
 # can I do a reveal of what each person won?
